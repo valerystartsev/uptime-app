@@ -1,0 +1,8 @@
+.env
+.env.example
+/backend/uploads/
+/.tools/
+/.vscode/
+/.codex/
+/.aws-sam/
+

@@ -1,0 +1,1 @@
+ALTER TABLE users ADD COLUMN avatar_file TEXT NOT NULL DEFAULT '';
