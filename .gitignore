@@ -1,5 +1,4 @@
 .env
-.env.example
 /backend/uploads/
 /.tools/
 /.vscode/

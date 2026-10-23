@@ -28,7 +28,7 @@ type Config struct {
 	AccessTokenTTL    time.Duration
 	RefreshTokenTTL   time.Duration
 	CORSAllowedOrigin string
-	AvatarDir         string
+	FilesDir          string
 	RefreshCookie     CookieConfig
 }
 
@@ -73,7 +73,7 @@ func Load() (Config, error) {
 		AccessTokenTTL:    accessTTL,
 		RefreshTokenTTL:   refreshTTL,
 		CORSAllowedOrigin: os.Getenv("CORS_ALLOWED_ORIGIN"),
-		AvatarDir:         envOrDefault("AVATAR_DIR", "uploads/avatars"),
+		FilesDir:          envOrDefault("FILES_DIR", "uploads"),
 		RefreshCookie: CookieConfig{
 			Name:     envOrDefault("REFRESH_COOKIE_NAME", "refresh_token"),
 			Domain:   os.Getenv("REFRESH_COOKIE_DOMAIN"),

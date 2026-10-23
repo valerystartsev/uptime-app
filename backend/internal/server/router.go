@@ -3,11 +3,12 @@ package server
 import (
 	"github.com/google/uuid"
 	"net/http"
-	"path/filepath"
+	"path"
 	"strings"
 
 	"example.com/uptime/backend/internal/auth/controller"
 	"example.com/uptime/backend/internal/config"
+	"example.com/uptime/backend/internal/files"
 )
 
 func NewRouter(authenticator controller.Authenticator, cfg config.Config) http.Handler {
@@ -22,13 +23,18 @@ func NewRouter(authenticator controller.Authenticator, cfg config.Config) http.H
 	mux.HandleFunc("POST /api/v1/auth/me/avatar", handler.UploadAvatar)
 	mux.HandleFunc("GET /api/v1/avatars/{filename}", func(w http.ResponseWriter, r *http.Request) {
 		filename := r.PathValue("filename")
-		id, ext := strings.TrimSuffix(strings.TrimSuffix(filename, ".png"), ".jpg"), filepath.Ext(filename)
+		id, ext := strings.TrimSuffix(strings.TrimSuffix(filename, ".png"), ".jpg"), path.Ext(filename)
 		if _, err := uuid.Parse(id); err != nil || (ext != ".png" && ext != ".jpg") || filename != id+ext {
 			http.NotFound(w, r)
 			return
 		}
 		w.Header().Set("X-Content-Type-Options", "nosniff")
-		http.ServeFile(w, r, filepath.Join(cfg.AvatarDir, filename))
+		path, err := files.New(cfg.FilesDir).Path("avatars", filename)
+		if err != nil {
+			http.NotFound(w, r)
+			return
+		}
+		http.ServeFile(w, r, path)
 	})
 	return cors(cfg.CORSAllowedOrigin, mux)
 }

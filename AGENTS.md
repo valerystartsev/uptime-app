@@ -23,3 +23,11 @@ or a short recording for visible UI changes.
 Do not commit secrets, tokens, or local environment files. Document required
 environment variables with safe example values. Keep server-only configuration
 out of browser-delivered code and validate external input at service boundaries.
+
+## Коммиты
+
+- формат: convertional Commits (feat, fix, refactor, test, docs, chore)
+- Заголовок до 72 символов, в повелительном наклонении
+- Без эмодзи, без "significantly improved" и прочей воды
+- Тело - только если нужно объяснить "почему", а не "что"
+- Один логический шаг - один коммит

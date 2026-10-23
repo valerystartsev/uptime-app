@@ -9,11 +9,8 @@ import (
 	_ "image/jpeg"
 	_ "image/png"
 	"net/http"
-	"os"
-	"path/filepath"
 
 	"example.com/uptime/backend/internal/store"
-	"github.com/google/uuid"
 )
 
 const MaxAvatarBytes = 5 << 20
@@ -49,36 +46,23 @@ func (s *Service) UploadAvatar(ctx context.Context, token string, data []byte) (
 	if _, _, err := image.Decode(bytes.NewReader(data)); err != nil {
 		return Profile{}, ErrInvalidAvatar
 	}
-	if err := os.MkdirAll(s.avatarDir, 0700); err != nil {
-		return Profile{}, fmt.Errorf("create avatar directory: %w", err)
-	}
-	tmp, err := os.CreateTemp(s.avatarDir, ".avatar-*")
-	if err != nil {
-		return Profile{}, fmt.Errorf("create avatar file: %w", err)
-	}
-	defer os.Remove(tmp.Name())
 	ext := ".png"
 	if format == "jpeg" {
 		ext = ".jpg"
 	}
-	filename := uuid.NewString() + ext
-	if _, err := tmp.Write(data); err != nil {
-		tmp.Close()
-		return Profile{}, err
+	if s.files == nil {
+		return Profile{}, fmt.Errorf("file storage is not configured")
 	}
-	if err := tmp.Close(); err != nil {
-		return Profile{}, err
-	}
-	path := filepath.Join(s.avatarDir, filename)
-	if err := os.Rename(tmp.Name(), path); err != nil {
+	filename, err := s.files.Save("avatars", ext, data)
+	if err != nil {
 		return Profile{}, err
 	}
 	if err := s.store.UpdateUserAvatar(ctx, id, filename); err != nil {
-		os.Remove(path)
+		_ = s.files.Delete("avatars", filename)
 		return Profile{}, err
 	}
 	if user.AvatarFile != "" {
-		_ = os.Remove(filepath.Join(s.avatarDir, user.AvatarFile))
+		_ = s.files.Delete("avatars", user.AvatarFile)
 	}
 	return s.Profile(ctx, token)
 }

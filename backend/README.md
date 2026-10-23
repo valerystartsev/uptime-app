@@ -51,6 +51,7 @@ cp .env.example .env
 | `ACCESS_TOKEN_TTL` | Срок access JWT | `15m` |
 | `REFRESH_TOKEN_TTL` | Срок refresh-сессии | `720h` |
 | `CORS_ALLOWED_ORIGIN` | Единственный разрешённый frontend origin | Не задан |
+| `FILES_DIR` | Корневой каталог для загружаемых файлов | `uploads` |
 | `REFRESH_COOKIE_NAME` | Имя refresh cookie | `refresh_token` |
 | `REFRESH_COOKIE_SECURE` | Атрибут `Secure` refresh cookie | `true` |
 | `REFRESH_COOKIE_SAME_SITE` | `lax`, `strict` или `none` | `lax` |
@@ -59,6 +60,9 @@ cp .env.example .env
 
 Для production задавайте уникальный `JWT_SECRET`, включайте
 `REFRESH_COOKIE_SECURE=true` и не передавайте секреты в репозиторий.
+Файлы размещаются в отдельных каталогах внутри `FILES_DIR`; аватары — в
+`FILES_DIR/avatars`. Каталог `backend/uploads/` исключён из Git. Если задаёте
+другой `FILES_DIR`, исключите его из Git и обеспечьте постоянное хранение.
 
 ## API
 

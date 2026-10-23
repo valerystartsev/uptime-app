@@ -11,6 +11,7 @@ import (
 
 	"example.com/uptime/backend/internal/auth"
 	"example.com/uptime/backend/internal/config"
+	"example.com/uptime/backend/internal/files"
 	"example.com/uptime/backend/internal/migrations"
 	"example.com/uptime/backend/internal/server"
 	"example.com/uptime/backend/internal/store"
@@ -38,7 +39,7 @@ func main() {
 
 	tokens := auth.NewTokenManager(cfg.JWTSecret, cfg.JWTIssuer, cfg.JWTAudience, cfg.AccessTokenTTL)
 	authService := auth.NewService(dataStore, tokens, cfg.RefreshTokenTTL)
-	authService.SetAvatarDir(cfg.AvatarDir)
+	authService.SetFileStorage(files.New(cfg.FilesDir))
 	server := &http.Server{
 		Addr:              cfg.HTTPAddr,
 		Handler:           server.NewRouter(authService, cfg),

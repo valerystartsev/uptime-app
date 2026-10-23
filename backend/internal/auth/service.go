@@ -10,6 +10,7 @@ import (
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 
+	"example.com/uptime/backend/internal/files"
 	"example.com/uptime/backend/internal/store"
 )
 
@@ -38,14 +39,14 @@ type Service struct {
 	tokens          *TokenManager
 	refreshTokenTTL time.Duration
 	now             func() time.Time
-	avatarDir       string
+	files           *files.Storage
 }
 
 func NewService(dataStore *store.Store, tokens *TokenManager, refreshTokenTTL time.Duration) *Service {
 	return &Service{store: dataStore, tokens: tokens, refreshTokenTTL: refreshTokenTTL, now: time.Now}
 }
 
-func (s *Service) SetAvatarDir(dir string) { s.avatarDir = dir }
+func (s *Service) SetFileStorage(storage *files.Storage) { s.files = storage }
 
 func (s *Service) Register(ctx context.Context, email, password string) (SessionResult, error) {
 	normalizedEmail, err := NormalizeEmail(email)
