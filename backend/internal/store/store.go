@@ -97,6 +97,22 @@ func (s *Store) UpdateUserAvatar(ctx context.Context, id uuid.UUID, filename str
 	return nil
 }
 
+func (s *Store) CreateMonitor(ctx context.Context, monitor *Monitor) error {
+	if err := s.db.WithContext(ctx).Create(monitor).Error; err != nil {
+		return fmt.Errorf("create monitor: %w", err)
+	}
+	return nil
+}
+
+func (s *Store) ListMonitors(ctx context.Context, userID uuid.UUID) ([]Monitor, error) {
+	monitors := make([]Monitor, 0)
+	if err := s.db.WithContext(ctx).Where("user_id = ?", userID).
+		Order("created_at DESC, id DESC").Find(&monitors).Error; err != nil {
+		return nil, fmt.Errorf("list monitors: %w", err)
+	}
+	return monitors, nil
+}
+
 func (s *Store) CreateRefreshSession(ctx context.Context, session *RefreshSession) error {
 	if err := s.db.WithContext(ctx).Create(session).Error; err != nil {
 		return fmt.Errorf("create refresh session: %w", err)

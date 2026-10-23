@@ -29,6 +29,17 @@ type RefreshSession struct {
 	User      User      `gorm:"foreignKey:UserID"`
 }
 
+type Monitor struct {
+	ID            uuid.UUID `gorm:"type:uuid;primaryKey"`
+	UserID        uuid.UUID `gorm:"type:uuid;not null"`
+	URL           string    `gorm:"not null"`
+	IntervalValue int64     `gorm:"not null"`
+	IntervalUnit  string    `gorm:"not null"`
+	CreatedAt     time.Time `gorm:"not null"`
+}
+
+func (Monitor) TableName() string { return "monitors" }
+
 func (RefreshSession) TableName() string {
 	return "refresh_sessions"
 }

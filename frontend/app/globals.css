@@ -19,7 +19,8 @@ a {
 }
 
 button,
-input {
+input,
+select {
   font: inherit;
 }
 
@@ -138,6 +139,102 @@ button:disabled {
 
 .dashboard-page {
   min-height: 100vh;
+}
+
+.monitors-section {
+  margin: 0 auto;
+  max-width: 1120px;
+  padding: 48px clamp(20px, 5vw, 72px);
+}
+
+.monitors-heading {
+  align-items: center;
+  display: flex;
+  gap: 24px;
+  justify-content: space-between;
+}
+
+.monitors-heading h1 {
+  margin-bottom: 8px;
+}
+
+.monitors-heading p:last-child {
+  color: #56627a;
+  margin: 0;
+}
+
+.monitor-form,
+.monitor-message,
+.monitor-card {
+  background: #fff;
+  border: 1px solid #dbe3ef;
+  border-radius: 12px;
+  padding: 24px;
+}
+
+.monitor-form {
+  display: grid;
+  gap: 12px;
+  margin-top: 28px;
+  max-width: 640px;
+}
+
+.monitor-form h2 {
+  margin: 0 0 4px;
+}
+
+.monitor-form label {
+  font-weight: 600;
+}
+
+.monitor-form input,
+.monitor-form select {
+  background: #fff;
+  border: 1px solid #aebbd0;
+  border-radius: 8px;
+  min-height: 44px;
+  padding: 10px 12px;
+  width: 100%;
+}
+
+.monitor-interval-fields,
+.monitor-form-actions {
+  display: flex;
+  gap: 12px;
+}
+
+.monitor-interval-fields > div {
+  display: grid;
+  flex: 1;
+  gap: 12px;
+}
+
+.monitor-form-actions button {
+  margin-top: 0;
+}
+
+.monitor-message,
+.monitor-list {
+  margin-top: 28px;
+}
+
+.monitor-list {
+  display: grid;
+  gap: 16px;
+  list-style: none;
+  padding: 0;
+}
+
+.monitor-card a {
+  color: #3156d3;
+  font-size: 1.1rem;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.monitor-card p {
+  color: #56627a;
+  margin-bottom: 0;
 }
 
 .dashboard-header {
@@ -308,6 +405,12 @@ button:disabled {
 }
 
 @media (max-width: 560px) {
+  .monitors-heading,
+  .monitor-interval-fields {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
   .dashboard-header {
     align-items: flex-start;
     gap: 16px;

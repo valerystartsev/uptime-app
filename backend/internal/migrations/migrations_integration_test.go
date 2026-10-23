@@ -23,7 +23,7 @@ func TestRunCreatesAuthTables(t *testing.T) {
 	if err := migrations.Run(context.Background(), db); err != nil {
 		t.Fatalf("Run() error = %v", err)
 	}
-	for _, table := range []string{"users", "refresh_sessions"} {
+	for _, table := range []string{"users", "refresh_sessions", "monitors"} {
 		if !db.Migrator().HasTable(table) {
 			t.Fatalf("migration did not create %q", table)
 		}
