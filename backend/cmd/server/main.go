@@ -13,6 +13,7 @@ import (
 	"example.com/uptime/backend/internal/config"
 	"example.com/uptime/backend/internal/files"
 	"example.com/uptime/backend/internal/migrations"
+	"example.com/uptime/backend/internal/monitor"
 	"example.com/uptime/backend/internal/server"
 	"example.com/uptime/backend/internal/store"
 )
@@ -40,9 +41,10 @@ func main() {
 	tokens := auth.NewTokenManager(cfg.JWTSecret, cfg.JWTIssuer, cfg.JWTAudience, cfg.AccessTokenTTL)
 	authService := auth.NewService(dataStore, tokens, cfg.RefreshTokenTTL)
 	authService.SetFileStorage(files.New(cfg.FilesDir))
+	monitorService := monitor.NewService(dataStore, tokens)
 	server := &http.Server{
 		Addr:              cfg.HTTPAddr,
-		Handler:           server.NewRouter(authService, cfg),
+		Handler:           server.NewRouter(authService, monitorService, cfg),
 		ReadHeaderTimeout: 5 * time.Second,
 	}
 

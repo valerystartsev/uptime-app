@@ -15,7 +15,7 @@ func TestAvatarIsServedFromSharedFileRoot(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	router := NewRouter(nil, config.Config{FilesDir: root})
+	router := NewRouter(nil, nil, config.Config{FilesDir: root})
 	request := httptest.NewRequest(http.MethodGet, "/api/v1/avatars/"+name, nil)
 	response := httptest.NewRecorder()
 	router.ServeHTTP(response, request)

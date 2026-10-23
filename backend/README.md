@@ -86,9 +86,14 @@ cp .env.example .env
 | `POST /api/v1/auth/logout` | Нет | `204`, отзыв сессии и очистка cookie |
 | `GET /api/v1/auth/me` | `Authorization: Bearer <access JWT>` | `200`, ID, email и имя текущего пользователя |
 | `PATCH /api/v1/auth/me` | `Authorization: Bearer <access JWT>`, `{"name":"Ada"}` | `200`, обновлённый профиль; имя от 1 до 100 символов |
+| `POST /api/v1/monitors` | `Authorization: Bearer <access JWT>`, `{"url":"https://example.com","interval_value":7,"interval_unit":"seconds"}` | `201`, созданная точка мониторинга |
+| `GET /api/v1/monitors` | `Authorization: Bearer <access JWT>` | `200`, список точек текущего пользователя |
 
 Невалидный запрос возвращает `400`, занятый email — `409`, а неверные учётные
 данные, отсутствующий, истёкший или отозванный refresh-токен — `401`.
+Для точки мониторинга `interval_value` — положительное целое число, а
+`interval_unit` — `seconds`, `minutes` или `hours`. URL должен начинаться с
+`http://` или `https://`. Проверки доступности сайтов пока не выполняются.
 
 ## Проверка
 

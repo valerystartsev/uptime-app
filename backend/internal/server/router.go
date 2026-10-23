@@ -9,10 +9,12 @@ import (
 	"example.com/uptime/backend/internal/auth/controller"
 	"example.com/uptime/backend/internal/config"
 	"example.com/uptime/backend/internal/files"
+	"example.com/uptime/backend/internal/monitor"
 )
 
-func NewRouter(authenticator controller.Authenticator, cfg config.Config) http.Handler {
+func NewRouter(authenticator controller.Authenticator, monitors monitor.Manager, cfg config.Config) http.Handler {
 	handler := controller.New(authenticator, cfg.RefreshCookie)
+	monitorHandler := monitor.NewHandler(monitors)
 	mux := http.NewServeMux()
 	mux.HandleFunc("POST /api/v1/auth/register", handler.Register)
 	mux.HandleFunc("POST /api/v1/auth/login", handler.Login)
@@ -21,6 +23,8 @@ func NewRouter(authenticator controller.Authenticator, cfg config.Config) http.H
 	mux.HandleFunc("GET /api/v1/auth/me", handler.Me)
 	mux.HandleFunc("PATCH /api/v1/auth/me", handler.UpdateProfile)
 	mux.HandleFunc("POST /api/v1/auth/me/avatar", handler.UploadAvatar)
+	mux.HandleFunc("POST /api/v1/monitors", monitorHandler.Create)
+	mux.HandleFunc("GET /api/v1/monitors", monitorHandler.List)
 	mux.HandleFunc("GET /api/v1/avatars/{filename}", func(w http.ResponseWriter, r *http.Request) {
 		filename := r.PathValue("filename")
 		id, ext := strings.TrimSuffix(strings.TrimSuffix(filename, ".png"), ".jpg"), path.Ext(filename)
