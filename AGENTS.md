@@ -18,6 +18,15 @@ Pull requests should explain the behavior change, list the commands used for
 verification, and link the related issue when one exists. Include screenshots
 or a short recording for visible UI changes.
 
+## Ветки и pull requests
+
+- Перед началом каждой задачи создавайте отдельную ветку от актуальной основной ветки.
+- Называйте ветки `feat/<nazvanie-fichi>` для новых возможностей и
+  `fix/<nazvanie-fichi>` для исправлений. Название пишите транслитом,
+  строчными латинскими буквами; слова разделяйте дефисами.
+- После завершения задачи создавайте pull request и вливайте изменения в
+  основную ветку через него. Не коммитьте задачи напрямую в основную ветку.
+
 ## Security & Configuration
 
 Do not commit secrets, tokens, or local environment files. Document required
