@@ -16,6 +16,7 @@ import (
 var ErrInvalidURL = errors.New("URL must be an HTTP or HTTPS address up to 2048 characters")
 var ErrInvalidInterval = errors.New("interval must be a positive number of seconds, minutes, or hours")
 var ErrMonitorLimit = errors.New("monitor limit reached")
+var ErrMonitorExists = errors.New("monitor already exists")
 var ErrInvalidPage = errors.New("page must be 1 or 2")
 
 const PageSize = store.MonitorPageSize
@@ -49,6 +50,9 @@ func (s *Service) Create(ctx context.Context, token, rawURL string, intervalValu
 		IntervalValue: intervalValue, IntervalUnit: intervalUnit, CreatedAt: time.Now().UTC(),
 	}
 	if err := s.store.CreateMonitor(ctx, &monitor); err != nil {
+		if errors.Is(err, store.ErrMonitorExists) {
+			return store.Monitor{}, ErrMonitorExists
+		}
 		if errors.Is(err, store.ErrMonitorLimit) {
 			return store.Monitor{}, ErrMonitorLimit
 		}

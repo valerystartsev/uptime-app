@@ -10,10 +10,13 @@ import (
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
+
+	"example.com/uptime/backend/internal/monitorurl"
 )
 
 var ErrNotFound = errors.New("store: not found")
 var ErrMonitorLimit = errors.New("store: monitor limit reached")
+var ErrMonitorExists = errors.New("store: monitor already exists")
 
 const MaxMonitors = 100
 const MonitorPageSize = 50
@@ -106,6 +109,16 @@ func (s *Store) CreateMonitor(ctx context.Context, monitor *Monitor) error {
 		var user User
 		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Select("id").First(&user, "id = ?", monitor.UserID).Error; err != nil {
 			return err
+		}
+		var addresses []string
+		if err := tx.Model(&Monitor{}).Where("user_id = ?", monitor.UserID).Pluck("url", &addresses).Error; err != nil {
+			return err
+		}
+		key := monitorurl.Key(monitor.URL)
+		for _, address := range addresses {
+			if monitorurl.Key(address) == key {
+				return ErrMonitorExists
+			}
 		}
 		var count int64
 		if err := tx.Model(&Monitor{}).Where("user_id = ?", monitor.UserID).Count(&count).Error; err != nil {

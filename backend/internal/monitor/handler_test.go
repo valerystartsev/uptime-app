@@ -68,6 +68,7 @@ func TestCreateMonitorRejectsBadRequests(t *testing.T) {
 		{"decimal interval", `{"url":"https://example.com","interval_value":1.5,"interval_unit":"seconds"}`, "Bearer token", nil, http.StatusBadRequest},
 		{"invalid interval", `{"url":"https://example.com","interval_value":0,"interval_unit":"seconds"}`, "Bearer token", ErrInvalidInterval, http.StatusBadRequest},
 		{"monitor limit", `{"url":"https://example.com","interval_value":1,"interval_unit":"seconds"}`, "Bearer token", ErrMonitorLimit, http.StatusConflict},
+		{"duplicate monitor", `{"url":"https://example.com","interval_value":1,"interval_unit":"seconds"}`, "Bearer token", ErrMonitorExists, http.StatusConflict},
 		{"invalid access token", `{"url":"https://example.com","interval_value":1,"interval_unit":"hours"}`, "Bearer invalid", nil, http.StatusUnauthorized},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

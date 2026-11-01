@@ -68,6 +68,20 @@ test("monitor creation rejects cross-origin and oversized requests", async ({ pa
   expect(list.body.items).toEqual([]);
 });
 
+test("rejects a duplicate monitor and explains the error", async ({ page }) => {
+  await register(page);
+  await page.getByRole("button", { name: "Добавить сайт" }).click();
+  await page.getByLabel("URL сайта").fill("https://example.com");
+  await page.getByRole("button", { name: "Создать", exact: true }).click();
+  await expect(page.getByRole("link", { name: "https://example.com", exact: true })).toHaveCount(1);
+
+  await page.getByRole("button", { name: "Добавить сайт" }).click();
+  await page.getByLabel("URL сайта").fill("https://EXAMPLE.com:443/");
+  await page.getByRole("button", { name: "Создать", exact: true }).click();
+  await expect(page.getByRole("alert").filter({ hasText: "Этот сайт уже добавлен" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "https://example.com", exact: true })).toHaveCount(1);
+});
+
 test("monitor list loads a second page", async ({ page }, testInfo) => {
   test.setTimeout(120_000);
   await register(page);

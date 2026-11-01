@@ -75,7 +75,15 @@ async function forward(request: NextRequest, method: "GET" | "POST", body?: Reco
   if (!response.ok) {
     if (response.status === 401) return error(401, "Требуется вход в аккаунт");
     if (response.status === 400) return error(400, "Проверьте URL и частоту опроса");
-    if (response.status === 409) return error(409, "Достигнут предел в 100 сайтов");
+    if (response.status === 409) {
+      let value: unknown;
+      try { value = await response.json(); } catch { return error(502, "Сервис вернул некорректный ответ"); }
+      if (value && typeof value === "object" && "error" in value) {
+        if (value.error === "monitor already exists") return error(409, "Этот сайт уже добавлен");
+        if (value.error === "monitor limit reached") return error(409, "Достигнут предел в 100 сайтов");
+      }
+      return error(502, "Сервис вернул некорректный ответ");
+    }
     return error(502, "Сервис недоступен");
   }
   let value: unknown;

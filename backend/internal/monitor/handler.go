@@ -107,6 +107,8 @@ func handleError(w http.ResponseWriter, err error) {
 		writeError(w, http.StatusBadRequest, err.Error())
 	case errors.Is(err, ErrMonitorLimit):
 		writeError(w, http.StatusConflict, err.Error())
+	case errors.Is(err, ErrMonitorExists):
+		writeError(w, http.StatusConflict, err.Error())
 	case errors.Is(err, auth.ErrInvalidAccessToken):
 		writeError(w, http.StatusUnauthorized, "invalid access token")
 	default:
