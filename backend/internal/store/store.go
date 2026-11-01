@@ -13,6 +13,10 @@ import (
 )
 
 var ErrNotFound = errors.New("store: not found")
+var ErrMonitorLimit = errors.New("store: monitor limit reached")
+
+const MaxMonitors = 100
+const MonitorPageSize = 50
 
 type Store struct {
 	db *gorm.DB
@@ -98,16 +102,30 @@ func (s *Store) UpdateUserAvatar(ctx context.Context, id uuid.UUID, filename str
 }
 
 func (s *Store) CreateMonitor(ctx context.Context, monitor *Monitor) error {
-	if err := s.db.WithContext(ctx).Create(monitor).Error; err != nil {
+	err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		var user User
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Select("id").First(&user, "id = ?", monitor.UserID).Error; err != nil {
+			return err
+		}
+		var count int64
+		if err := tx.Model(&Monitor{}).Where("user_id = ?", monitor.UserID).Count(&count).Error; err != nil {
+			return err
+		}
+		if count >= MaxMonitors {
+			return ErrMonitorLimit
+		}
+		return tx.Create(monitor).Error
+	})
+	if err != nil {
 		return fmt.Errorf("create monitor: %w", err)
 	}
 	return nil
 }
 
-func (s *Store) ListMonitors(ctx context.Context, userID uuid.UUID) ([]Monitor, error) {
+func (s *Store) ListMonitors(ctx context.Context, userID uuid.UUID, limit, offset int) ([]Monitor, error) {
 	monitors := make([]Monitor, 0)
 	if err := s.db.WithContext(ctx).Where("user_id = ?", userID).
-		Order("created_at DESC, id DESC").Find(&monitors).Error; err != nil {
+		Order("created_at DESC, id DESC").Limit(limit + 1).Offset(offset).Find(&monitors).Error; err != nil {
 		return nil, fmt.Errorf("list monitors: %w", err)
 	}
 	return monitors, nil

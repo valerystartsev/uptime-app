@@ -6,6 +6,7 @@ import (
 	"errors"
 	"io"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -15,7 +16,7 @@ import (
 
 type Manager interface {
 	Create(context.Context, string, string, int64, string) (store.Monitor, error)
-	List(context.Context, string) ([]store.Monitor, error)
+	List(context.Context, string, int) ([]store.Monitor, bool, error)
 }
 
 type Handler struct{ manager Manager }
@@ -69,7 +70,16 @@ func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusUnauthorized, "invalid access token")
 		return
 	}
-	monitors, err := h.manager.List(r.Context(), token)
+	page := 1
+	if rawPage := r.URL.Query().Get("page"); rawPage != "" {
+		var err error
+		page, err = strconv.Atoi(rawPage)
+		if err != nil || page < 1 || page > MaxPages {
+			writeError(w, http.StatusBadRequest, ErrInvalidPage.Error())
+			return
+		}
+	}
+	monitors, hasMore, err := h.manager.List(r.Context(), token, page)
 	if err != nil {
 		handleError(w, err)
 		return
@@ -78,7 +88,10 @@ func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
 	for _, monitor := range monitors {
 		result = append(result, toResponse(monitor))
 	}
-	writeJSON(w, http.StatusOK, result)
+	writeJSON(w, http.StatusOK, struct {
+		Items   []monitorResponse `json:"items"`
+		HasMore bool              `json:"has_more"`
+	}{Items: result, HasMore: hasMore})
 }
 
 func accessToken(r *http.Request) (string, bool) {
@@ -90,6 +103,10 @@ func handleError(w http.ResponseWriter, err error) {
 	switch {
 	case errors.Is(err, ErrInvalidURL), errors.Is(err, ErrInvalidInterval):
 		writeError(w, http.StatusBadRequest, err.Error())
+	case errors.Is(err, ErrInvalidPage):
+		writeError(w, http.StatusBadRequest, err.Error())
+	case errors.Is(err, ErrMonitorLimit):
+		writeError(w, http.StatusConflict, err.Error())
 	case errors.Is(err, auth.ErrInvalidAccessToken):
 		writeError(w, http.StatusUnauthorized, "invalid access token")
 	default:

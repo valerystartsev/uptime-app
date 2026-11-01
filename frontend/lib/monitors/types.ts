@@ -8,6 +8,15 @@ export type Monitor = {
   created_at: string;
 };
 
+export type MonitorPage = { items: Monitor[]; has_more: boolean };
+
+export function isMonitorPage(value: unknown): value is MonitorPage {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const page = value as Record<string, unknown>;
+  return Array.isArray(page.items) && page.items.length <= 50 && page.items.every(isMonitor) &&
+    typeof page.has_more === "boolean";
+}
+
 export function isIntervalUnit(value: unknown): value is IntervalUnit {
   return value === "seconds" || value === "minutes" || value === "hours";
 }
@@ -23,7 +32,8 @@ export function isMonitor(value: unknown): value is Monitor {
 }
 
 export function isMonitorURL(value: string): boolean {
-  if (!value || value.length > 2048 || value !== value.trim()) return false;
+  if (!/^https?:\/\//.test(value) || new TextEncoder().encode(value).length > 2048 ||
+      value !== value.trim() || /[\\\u0000-\u001f\u007f]/.test(value)) return false;
   try {
     const url = new URL(value);
     return (url.protocol === "http:" || url.protocol === "https:") &&

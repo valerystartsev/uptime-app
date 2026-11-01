@@ -1,6 +1,9 @@
 package monitor
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 func TestValidURL(t *testing.T) {
 	for _, tc := range []struct {
@@ -13,6 +16,9 @@ func TestValidURL(t *testing.T) {
 		{"https://", false},
 		{"https://user:pass@example.com", false},
 		{"https://example.com/#fragment", false},
+		{"https://example.com\\@private.test/", false},
+		{"https://example.com/\npath", false},
+		{"https://example.com/" + strings.Repeat("a", 2048), false},
 		{"", false},
 	} {
 		if got := validURL(tc.value); got != tc.valid {

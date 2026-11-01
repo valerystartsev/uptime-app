@@ -18,6 +18,8 @@ import (
 type fakeManager struct {
 	created store.Monitor
 	items   []store.Monitor
+	hasMore bool
+	page    int
 	err     error
 }
 
@@ -29,11 +31,12 @@ func (f *fakeManager) Create(_ context.Context, token, url string, value int64, 
 	return f.created, f.err
 }
 
-func (f *fakeManager) List(_ context.Context, token string) ([]store.Monitor, error) {
+func (f *fakeManager) List(_ context.Context, token string, page int) ([]store.Monitor, bool, error) {
 	if token != "token" {
-		return nil, auth.ErrInvalidAccessToken
+		return nil, false, auth.ErrInvalidAccessToken
 	}
-	return f.items, f.err
+	f.page = page
+	return f.items, f.hasMore, f.err
 }
 
 func TestCreateMonitorReturnsSelectedInterval(t *testing.T) {
@@ -64,6 +67,7 @@ func TestCreateMonitorRejectsBadRequests(t *testing.T) {
 		{"unknown field", `{"url":"https://example.com","interval_value":7,"interval_unit":"seconds","extra":1}`, "Bearer token", nil, http.StatusBadRequest},
 		{"decimal interval", `{"url":"https://example.com","interval_value":1.5,"interval_unit":"seconds"}`, "Bearer token", nil, http.StatusBadRequest},
 		{"invalid interval", `{"url":"https://example.com","interval_value":0,"interval_unit":"seconds"}`, "Bearer token", ErrInvalidInterval, http.StatusBadRequest},
+		{"monitor limit", `{"url":"https://example.com","interval_value":1,"interval_unit":"seconds"}`, "Bearer token", ErrMonitorLimit, http.StatusConflict},
 		{"invalid access token", `{"url":"https://example.com","interval_value":1,"interval_unit":"hours"}`, "Bearer invalid", nil, http.StatusUnauthorized},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -78,20 +82,35 @@ func TestCreateMonitorRejectsBadRequests(t *testing.T) {
 	}
 }
 
-func TestListMonitorsReturnsArray(t *testing.T) {
-	manager := &fakeManager{items: []store.Monitor{{ID: uuid.New(), URL: "https://example.com", IntervalValue: 2, IntervalUnit: "hours", CreatedAt: time.Now()}}}
-	request := httptest.NewRequest(http.MethodGet, "/api/v1/monitors", nil)
+func TestListMonitorsReturnsPage(t *testing.T) {
+	manager := &fakeManager{items: []store.Monitor{{ID: uuid.New(), URL: "https://example.com", IntervalValue: 2, IntervalUnit: "hours", CreatedAt: time.Now()}}, hasMore: true}
+	request := httptest.NewRequest(http.MethodGet, "/api/v1/monitors?page=2", nil)
 	request.Header.Set("Authorization", "Bearer token")
 	recorder := httptest.NewRecorder()
 	NewHandler(manager).List(recorder, request)
 	if recorder.Code != http.StatusOK {
 		t.Fatalf("status = %d, want 200", recorder.Code)
 	}
-	var response []monitorResponse
+	var response struct {
+		Items   []monitorResponse `json:"items"`
+		HasMore bool              `json:"has_more"`
+	}
 	if err := json.NewDecoder(recorder.Body).Decode(&response); err != nil {
 		t.Fatal(err)
 	}
-	if len(response) != 1 || response[0].IntervalValue != 2 || response[0].IntervalUnit != "hours" {
+	if manager.page != 2 || !response.HasMore || len(response.Items) != 1 || response.Items[0].IntervalValue != 2 || response.Items[0].IntervalUnit != "hours" {
 		t.Fatalf("response = %#v", response)
+	}
+}
+
+func TestListMonitorsRejectsInvalidPage(t *testing.T) {
+	for _, page := range []string{"0", "3", "abc"} {
+		request := httptest.NewRequest(http.MethodGet, "/api/v1/monitors?page="+page, nil)
+		request.Header.Set("Authorization", "Bearer token")
+		recorder := httptest.NewRecorder()
+		NewHandler(&fakeManager{}).List(recorder, request)
+		if recorder.Code != http.StatusBadRequest {
+			t.Errorf("page %q: status = %d, want 400", page, recorder.Code)
+		}
 	}
 }

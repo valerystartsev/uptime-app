@@ -15,20 +15,25 @@ import (
 
 var ErrInvalidURL = errors.New("URL must be an HTTP or HTTPS address up to 2048 characters")
 var ErrInvalidInterval = errors.New("interval must be a positive number of seconds, minutes, or hours")
+var ErrMonitorLimit = errors.New("monitor limit reached")
+var ErrInvalidPage = errors.New("page must be 1 or 2")
+
+const PageSize = store.MonitorPageSize
+const MaxPages = store.MaxMonitors / PageSize
 
 const maxSafeIntervalValue = 1<<53 - 1 // JSON numbers must remain exact in the frontend.
 
 type Service struct {
-	store  *store.Store
-	tokens *auth.TokenManager
+	store *store.Store
+	auth  *auth.Service
 }
 
-func NewService(dataStore *store.Store, tokens *auth.TokenManager) *Service {
-	return &Service{store: dataStore, tokens: tokens}
+func NewService(dataStore *store.Store, authenticator *auth.Service) *Service {
+	return &Service{store: dataStore, auth: authenticator}
 }
 
 func (s *Service) Create(ctx context.Context, token, rawURL string, intervalValue int64, intervalUnit string) (store.Monitor, error) {
-	userID, err := s.userID(ctx, token)
+	profile, err := s.auth.Profile(ctx, token)
 	if err != nil {
 		return store.Monitor{}, err
 	}
@@ -40,10 +45,13 @@ func (s *Service) Create(ctx context.Context, token, rawURL string, intervalValu
 		return store.Monitor{}, ErrInvalidInterval
 	}
 	monitor := store.Monitor{
-		ID: uuid.New(), UserID: userID, URL: address,
+		ID: uuid.New(), UserID: profile.ID, URL: address,
 		IntervalValue: intervalValue, IntervalUnit: intervalUnit, CreatedAt: time.Now().UTC(),
 	}
 	if err := s.store.CreateMonitor(ctx, &monitor); err != nil {
+		if errors.Is(err, store.ErrMonitorLimit) {
+			return store.Monitor{}, ErrMonitorLimit
+		}
 		return store.Monitor{}, err
 	}
 	return monitor, nil
@@ -54,34 +62,29 @@ func validInterval(value int64, unit string) bool {
 		(unit == "seconds" || unit == "minutes" || unit == "hours")
 }
 
-func (s *Service) List(ctx context.Context, token string) ([]store.Monitor, error) {
-	userID, err := s.userID(ctx, token)
+func (s *Service) List(ctx context.Context, token string, page int) ([]store.Monitor, bool, error) {
+	if page < 1 || page > MaxPages {
+		return nil, false, ErrInvalidPage
+	}
+	profile, err := s.auth.Profile(ctx, token)
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
-	return s.store.ListMonitors(ctx, userID)
-}
-
-func (s *Service) userID(ctx context.Context, token string) (uuid.UUID, error) {
-	claims, err := s.tokens.Validate(token)
+	monitors, err := s.store.ListMonitors(ctx, profile.ID, PageSize, (page-1)*PageSize)
 	if err != nil {
-		return uuid.Nil, auth.ErrInvalidAccessToken
+		return nil, false, err
 	}
-	userID, err := uuid.Parse(claims.Subject)
-	if err != nil {
-		return uuid.Nil, auth.ErrInvalidAccessToken
+	hasMore := len(monitors) > PageSize
+	if hasMore {
+		monitors = monitors[:PageSize]
 	}
-	if _, err := s.store.FindUserByID(ctx, userID); err != nil {
-		if errors.Is(err, store.ErrNotFound) {
-			return uuid.Nil, auth.ErrInvalidAccessToken
-		}
-		return uuid.Nil, err
-	}
-	return userID, nil
+	return monitors, hasMore, nil
 }
 
 func validURL(value string) bool {
-	if len(value) == 0 || len(value) > 2048 {
+	if len(value) == 0 || len(value) > 2048 || strings.IndexFunc(value, func(r rune) bool {
+		return r == '\\' || r < 0x20 || r == 0x7f
+	}) >= 0 {
 		return false
 	}
 	parsed, err := url.Parse(value)
