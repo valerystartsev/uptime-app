@@ -68,7 +68,7 @@ test("monitor creation rejects cross-origin and oversized requests", async ({ pa
   expect(list.body.items).toEqual([]);
 });
 
-test("monitor list loads a second page", async ({ page }) => {
+test("monitor list loads a second page", async ({ page }, testInfo) => {
   test.setTimeout(120_000);
   await register(page);
   const statuses = await page.evaluate(async () => {
@@ -85,6 +85,8 @@ test("monitor list loads a second page", async ({ page }) => {
   expect(statuses).toEqual(Array(51).fill(201));
   await page.reload();
   await expect(page.getByRole("button", { name: "Показать ещё" })).toBeVisible();
+  await page.getByRole("button", { name: "Показать ещё" }).scrollIntoViewIfNeeded();
+  await page.screenshot({ path: testInfo.outputPath("monitor-pagination.png") });
   await page.getByRole("button", { name: "Показать ещё" }).click();
   await expect(page.getByRole("link", { name: "https://example.com/page-0" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Показать ещё" })).toHaveCount(0);
