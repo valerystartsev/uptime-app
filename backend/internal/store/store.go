@@ -135,10 +135,18 @@ func (s *Store) CreateMonitor(ctx context.Context, monitor *Monitor) error {
 	return nil
 }
 
-func (s *Store) ListMonitors(ctx context.Context, userID uuid.UUID, limit, offset int) ([]Monitor, error) {
+type MonitorCursor struct {
+	CreatedAt time.Time
+	ID        uuid.UUID
+}
+
+func (s *Store) ListMonitors(ctx context.Context, userID uuid.UUID, limit int, cursor *MonitorCursor) ([]Monitor, error) {
 	monitors := make([]Monitor, 0)
-	if err := s.db.WithContext(ctx).Where("user_id = ?", userID).
-		Order("created_at DESC, id DESC").Limit(limit + 1).Offset(offset).Find(&monitors).Error; err != nil {
+	query := s.db.WithContext(ctx).Where("user_id = ?", userID)
+	if cursor != nil {
+		query = query.Where("(created_at, id) < (?, ?)", cursor.CreatedAt, cursor.ID)
+	}
+	if err := query.Order("created_at DESC, id DESC").Limit(limit + 1).Find(&monitors).Error; err != nil {
 		return nil, fmt.Errorf("list monitors: %w", err)
 	}
 	return monitors, nil

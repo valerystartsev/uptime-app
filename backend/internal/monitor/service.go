@@ -2,6 +2,7 @@ package monitor
 
 import (
 	"context"
+	"encoding/base64"
 	"errors"
 	"net/url"
 	"strings"
@@ -17,10 +18,9 @@ var ErrInvalidURL = errors.New("URL must be an HTTP or HTTPS address up to 2048 
 var ErrInvalidInterval = errors.New("interval must be a positive number of seconds, minutes, or hours")
 var ErrMonitorLimit = errors.New("monitor limit reached")
 var ErrMonitorExists = errors.New("monitor already exists")
-var ErrInvalidPage = errors.New("page must be 1 or 2")
+var ErrInvalidCursor = errors.New("invalid cursor")
 
 const PageSize = store.MonitorPageSize
-const MaxPages = store.MaxMonitors / PageSize
 
 const maxSafeIntervalValue = 1<<53 - 1 // JSON numbers must remain exact in the frontend.
 
@@ -66,23 +66,46 @@ func validInterval(value int64, unit string) bool {
 		(unit == "seconds" || unit == "minutes" || unit == "hours")
 }
 
-func (s *Service) List(ctx context.Context, token string, page int) ([]store.Monitor, bool, error) {
-	if page < 1 || page > MaxPages {
-		return nil, false, ErrInvalidPage
+func (s *Service) List(ctx context.Context, token string, cursor string) ([]store.Monitor, string, error) {
+	boundary, err := parseCursor(cursor)
+	if err != nil {
+		return nil, "", err
 	}
 	profile, err := s.auth.Profile(ctx, token)
 	if err != nil {
-		return nil, false, err
+		return nil, "", err
 	}
-	monitors, err := s.store.ListMonitors(ctx, profile.ID, PageSize, (page-1)*PageSize)
+	monitors, err := s.store.ListMonitors(ctx, profile.ID, PageSize, boundary)
 	if err != nil {
-		return nil, false, err
+		return nil, "", err
 	}
-	hasMore := len(monitors) > PageSize
-	if hasMore {
+	next := ""
+	if len(monitors) > PageSize {
 		monitors = monitors[:PageSize]
+		last := monitors[len(monitors)-1]
+		next = base64.RawURLEncoding.EncodeToString([]byte(last.CreatedAt.UTC().Format(time.RFC3339Nano) + "|" + last.ID.String()))
 	}
-	return monitors, hasMore, nil
+	return monitors, next, nil
+}
+
+func parseCursor(value string) (*store.MonitorCursor, error) {
+	if value == "" {
+		return nil, nil
+	}
+	if len(value) > 128 {
+		return nil, ErrInvalidCursor
+	}
+	decoded, err := base64.RawURLEncoding.DecodeString(value)
+	if err != nil {
+		return nil, ErrInvalidCursor
+	}
+	timestamp, id, ok := strings.Cut(string(decoded), "|")
+	createdAt, timeErr := time.Parse(time.RFC3339Nano, timestamp)
+	monitorID, idErr := uuid.Parse(id)
+	if !ok || timeErr != nil || idErr != nil {
+		return nil, ErrInvalidCursor
+	}
+	return &store.MonitorCursor{CreatedAt: createdAt, ID: monitorID}, nil
 }
 
 func validURL(value string) bool {

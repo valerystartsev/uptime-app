@@ -6,7 +6,6 @@ import (
 	"errors"
 	"io"
 	"net/http"
-	"strconv"
 	"strings"
 	"time"
 
@@ -16,7 +15,7 @@ import (
 
 type Manager interface {
 	Create(context.Context, string, string, int64, string) (store.Monitor, error)
-	List(context.Context, string, int) ([]store.Monitor, bool, error)
+	List(context.Context, string, string) ([]store.Monitor, string, error)
 }
 
 type Handler struct{ manager Manager }
@@ -70,16 +69,7 @@ func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusUnauthorized, "invalid access token")
 		return
 	}
-	page := 1
-	if rawPage := r.URL.Query().Get("page"); rawPage != "" {
-		var err error
-		page, err = strconv.Atoi(rawPage)
-		if err != nil || page < 1 || page > MaxPages {
-			writeError(w, http.StatusBadRequest, ErrInvalidPage.Error())
-			return
-		}
-	}
-	monitors, hasMore, err := h.manager.List(r.Context(), token, page)
+	monitors, next, err := h.manager.List(r.Context(), token, r.URL.Query().Get("cursor"))
 	if err != nil {
 		handleError(w, err)
 		return
@@ -89,9 +79,9 @@ func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
 		result = append(result, toResponse(monitor))
 	}
 	writeJSON(w, http.StatusOK, struct {
-		Items   []monitorResponse `json:"items"`
-		HasMore bool              `json:"has_more"`
-	}{Items: result, HasMore: hasMore})
+		Items      []monitorResponse `json:"items"`
+		NextCursor string            `json:"next_cursor"`
+	}{Items: result, NextCursor: next})
 }
 
 func accessToken(r *http.Request) (string, bool) {
@@ -103,7 +93,7 @@ func handleError(w http.ResponseWriter, err error) {
 	switch {
 	case errors.Is(err, ErrInvalidURL), errors.Is(err, ErrInvalidInterval):
 		writeError(w, http.StatusBadRequest, err.Error())
-	case errors.Is(err, ErrInvalidPage):
+	case errors.Is(err, ErrInvalidCursor):
 		writeError(w, http.StatusBadRequest, err.Error())
 	case errors.Is(err, ErrMonitorLimit):
 		writeError(w, http.StatusConflict, err.Error())

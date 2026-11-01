@@ -61,7 +61,7 @@ test("monitor creation rejects cross-origin and oversized requests", async ({ pa
   expect(oversized).toBe(400);
 
   const list = await page.evaluate(async () => {
-    const response = await fetch("/api/monitors?page=1");
+    const response = await fetch("/api/monitors");
     return { status: response.status, body: await response.json() };
   });
   expect(list.status).toBe(200);
@@ -82,6 +82,26 @@ test("rejects a duplicate monitor and explains the error", async ({ page }) => {
   await expect(page.getByRole("link", { name: "https://example.com", exact: true })).toHaveCount(1);
 });
 
+test("reads older URL formats and accepts uppercase schemes", async ({ page }) => {
+  await register(page);
+  await page.getByRole("button", { name: "Добавить сайт" }).click();
+  await page.getByLabel("URL сайта").fill("HTTPS://example.com/new");
+  await page.getByRole("button", { name: "Создать", exact: true }).click();
+  await expect(page.getByRole("link", { name: "HTTPS://example.com/new" })).toBeVisible();
+
+  await page.route("**/api/monitors", async (route) => {
+    if (route.request().method() !== "GET") return route.continue();
+    const items = ["HTTPS://example.com", "https://example.com/a\\b"].map((url, index) => ({
+      id: `00000000-0000-4000-8000-00000000000${index}`,
+      url, interval_value: 1, interval_unit: "hours", created_at: "2026-01-01T00:00:00Z",
+    }));
+    await route.fulfill({ json: { items, next_cursor: "" } });
+  });
+  await page.reload();
+  await expect(page.getByRole("link", { name: "HTTPS://example.com", exact: true })).toBeVisible();
+  await expect(page.getByRole("link", { name: "https://example.com/a\\b", exact: true })).toBeVisible();
+});
+
 test("monitor list loads a second page", async ({ page }, testInfo) => {
   test.setTimeout(120_000);
   await register(page);
@@ -99,9 +119,20 @@ test("monitor list loads a second page", async ({ page }, testInfo) => {
   expect(statuses).toEqual(Array(51).fill(201));
   await page.reload();
   await expect(page.getByRole("button", { name: "Показать ещё" })).toBeVisible();
+  const created = await page.evaluate(async () => {
+    const response = await fetch("/api/monitors", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ url: "https://example.com/newer", interval_value: 1, interval_unit: "hours" }),
+    });
+    return response.status;
+  });
+  expect(created).toBe(201);
   await page.getByRole("button", { name: "Показать ещё" }).scrollIntoViewIfNeeded();
   await page.screenshot({ path: testInfo.outputPath("monitor-pagination.png") });
   await page.getByRole("button", { name: "Показать ещё" }).click();
   await expect(page.getByRole("link", { name: "https://example.com/page-0" })).toBeVisible();
+  await expect(page.locator(".monitor-card")).toHaveCount(51);
   await expect(page.getByRole("button", { name: "Показать ещё" })).toHaveCount(0);
+  await page.reload();
+  await expect(page.getByRole("link", { name: "https://example.com/newer" })).toBeVisible();
 });

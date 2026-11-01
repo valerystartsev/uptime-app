@@ -5,9 +5,9 @@ import { isIntervalUnit, isMonitor, isMonitorPage, isMonitorURL } from "@/lib/mo
 const maxBodyBytes = 16 * 1024;
 
 export async function listMonitors(request: NextRequest) {
-  const page = request.nextUrl.searchParams.get("page") ?? "1";
-  if (page !== "1" && page !== "2") return error(400, "Некорректная страница");
-  return forward(request, "GET", undefined, page);
+  const cursor = request.nextUrl.searchParams.get("cursor") ?? "";
+  if (!/^[A-Za-z0-9_-]{0,128}$/.test(cursor)) return error(400, "Некорректный курсор");
+  return forward(request, "GET", undefined, cursor);
 }
 
 export async function createMonitor(request: NextRequest) {
@@ -56,14 +56,14 @@ async function readLimitedBody(request: NextRequest): Promise<string> {
   return new TextDecoder("utf-8", { fatal: true }).decode(bytes);
 }
 
-async function forward(request: NextRequest, method: "GET" | "POST", body?: Record<string, unknown>, page = "1") {
+async function forward(request: NextRequest, method: "GET" | "POST", body?: Record<string, unknown>, cursor = "") {
   const token = request.cookies.get("access_token")?.value;
   if (!token) return error(401, "Требуется вход в аккаунт");
   const backendURL = process.env.BACKEND_API_URL;
   if (!backendURL) return error(502, "Сервис недоступен");
   let response: Response;
   try {
-    response = await fetch(`${backendURL.replace(/\/$/, "")}/api/v1/monitors${method === "GET" ? `?page=${page}` : ""}`, {
+    response = await fetch(`${backendURL.replace(/\/$/, "")}/api/v1/monitors${method === "GET" && cursor ? `?cursor=${cursor}` : ""}`, {
       method,
       headers: { Authorization: `Bearer ${token}`, ...(body ? { "Content-Type": "application/json" } : {}) },
       body: body ? JSON.stringify(body) : undefined,

@@ -87,7 +87,7 @@ cp .env.example .env
 | `GET /api/v1/auth/me` | `Authorization: Bearer <access JWT>` | `200`, ID, email и имя текущего пользователя |
 | `PATCH /api/v1/auth/me` | `Authorization: Bearer <access JWT>`, `{"name":"Ada"}` | `200`, обновлённый профиль; имя от 1 до 100 символов |
 | `POST /api/v1/monitors` | `Authorization: Bearer <access JWT>`, `{"url":"https://example.com","interval_value":7,"interval_unit":"seconds"}` | `201`, созданная точка мониторинга |
-| `GET /api/v1/monitors?page=1` | `Authorization: Bearer <access JWT>` | `200`, объект `{ "items": [...], "has_more": false }`; страницы по 50 точек, допустимы страницы 1 и 2 |
+| `GET /api/v1/monitors` | `Authorization: Bearer <access JWT>` | `200`, объект `{ "items": [...], "next_cursor": "..." }`; до 50 точек за запрос |
 
 Невалидный запрос возвращает `400`, занятый email — `409`, а неверные учётные
 данные, отсутствующий, истёкший или отозванный refresh-токен — `401`.
@@ -95,6 +95,9 @@ cp .env.example .env
 `interval_unit` — `seconds`, `minutes` или `hours`. URL должен начинаться с
 `http://` или `https://`. Проверки доступности сайтов пока не выполняются.
 Один пользователь может создать до 100 точек; следующий запрос вернёт `409`.
+Для следующей страницы передайте `next_cursor` как параметр `cursor`; пустой
+`next_cursor` означает конец списка. Новые точки выше текущего курсора появятся
+после обновления списка. Все ранее созданные точки доступны независимо от лимита.
 Повторное добавление URL тем же пользователем возвращает `409` с ошибкой
 `monitor already exists`. Регистр домена, порт по умолчанию и отсутствие `/`
 у корневого пути не влияют на сравнение; разные пути и параметры запроса

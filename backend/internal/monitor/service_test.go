@@ -11,6 +11,7 @@ func TestValidURL(t *testing.T) {
 		valid bool
 	}{
 		{"https://example.com/path?q=1", true},
+		{"HTTPS://example.com", true},
 		{"http://localhost:8080", true},
 		{"ftp://example.com", false},
 		{"https://", false},
@@ -23,6 +24,14 @@ func TestValidURL(t *testing.T) {
 	} {
 		if got := validURL(tc.value); got != tc.valid {
 			t.Errorf("validURL(%q) = %v, want %v", tc.value, got, tc.valid)
+		}
+	}
+}
+
+func TestParseCursorRejectsInvalidInput(t *testing.T) {
+	for _, value := range []string{"bad", strings.Repeat("a", 129)} {
+		if _, err := parseCursor(value); err != ErrInvalidCursor {
+			t.Errorf("parseCursor(%q) error = %v", value, err)
 		}
 	}
 }

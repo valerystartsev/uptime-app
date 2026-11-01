@@ -24,8 +24,8 @@ export function Dashboard() {
   const [monitors, setMonitors] = useState<Monitor[] | null>(null);
   const [loadError, setLoadError] = useState("");
   const [reloadKey, setReloadKey] = useState(0);
-  const [page, setPage] = useState(1);
-  const [hasMore, setHasMore] = useState(false);
+  const [cursor, setCursor] = useState("");
+  const [nextCursor, setNextCursor] = useState("");
   const [loading, setLoading] = useState(false);
   const [formOpen, setFormOpen] = useState(false);
   const [url, setURL] = useState("");
@@ -42,13 +42,13 @@ export function Dashboard() {
       setLoadError("");
       setLoading(true);
       try {
-        const response = await fetch(`/api/monitors?page=${page}`, { signal: controller.signal });
+        const response = await fetch(`/api/monitors${cursor ? `?cursor=${cursor}` : ""}`, { signal: controller.signal });
         if (!response.ok) throw new Error("Не удалось загрузить сайты");
         const value: unknown = await response.json();
         if (!isMonitorPage(value)) throw new Error("Некорректный ответ сервиса");
         if (!controller.signal.aborted) {
-          setMonitors((current) => page === 1 ? value.items : [...(current ?? []), ...value.items]);
-          setHasMore(value.has_more);
+          setMonitors((current) => !cursor ? value.items : [...(current ?? []), ...value.items]);
+          setNextCursor(value.next_cursor);
         }
       } catch {
         if (!controller.signal.aborted) setLoadError("Не удалось загрузить сайты. Попробуйте ещё раз.");
@@ -58,7 +58,7 @@ export function Dashboard() {
     }
     void load();
     return () => controller.abort();
-  }, [profileID, reloadKey, page]);
+  }, [profileID, reloadKey, cursor]);
 
   async function create(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -84,9 +84,9 @@ export function Dashboard() {
       }
       if (!isMonitor(value)) throw new Error("Сервис вернул некорректный ответ");
       setLoadError("");
-      setPage(1);
+      setCursor("");
       setMonitors(null);
-      setHasMore(false);
+      setNextCursor("");
       setReloadKey((current) => current + 1);
       setFormOpen(false);
       setURL("");
@@ -160,8 +160,8 @@ export function Dashboard() {
             ))}
           </ul>
         )}
-        {monitors && hasMore && !loadError && <button type="button" disabled={loading}
-          onClick={() => setPage((current) => current + 1)}>Показать ещё</button>}
+        {monitors && nextCursor && !loadError && <button type="button" disabled={loading}
+          onClick={() => setCursor(nextCursor)}>Показать ещё</button>}
       </section>
     </main>
   );
