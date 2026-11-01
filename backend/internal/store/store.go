@@ -10,9 +10,16 @@ import (
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
+
+	"example.com/uptime/backend/internal/monitorurl"
 )
 
 var ErrNotFound = errors.New("store: not found")
+var ErrMonitorLimit = errors.New("store: monitor limit reached")
+var ErrMonitorExists = errors.New("store: monitor already exists")
+
+const MaxMonitors = 100
+const MonitorPageSize = 50
 
 type Store struct {
 	db *gorm.DB
@@ -98,16 +105,48 @@ func (s *Store) UpdateUserAvatar(ctx context.Context, id uuid.UUID, filename str
 }
 
 func (s *Store) CreateMonitor(ctx context.Context, monitor *Monitor) error {
-	if err := s.db.WithContext(ctx).Create(monitor).Error; err != nil {
+	err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		var user User
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Select("id").First(&user, "id = ?", monitor.UserID).Error; err != nil {
+			return err
+		}
+		var addresses []string
+		if err := tx.Model(&Monitor{}).Where("user_id = ?", monitor.UserID).Pluck("url", &addresses).Error; err != nil {
+			return err
+		}
+		key := monitorurl.Key(monitor.URL)
+		for _, address := range addresses {
+			if monitorurl.Key(address) == key {
+				return ErrMonitorExists
+			}
+		}
+		var count int64
+		if err := tx.Model(&Monitor{}).Where("user_id = ?", monitor.UserID).Count(&count).Error; err != nil {
+			return err
+		}
+		if count >= MaxMonitors {
+			return ErrMonitorLimit
+		}
+		return tx.Create(monitor).Error
+	})
+	if err != nil {
 		return fmt.Errorf("create monitor: %w", err)
 	}
 	return nil
 }
 
-func (s *Store) ListMonitors(ctx context.Context, userID uuid.UUID) ([]Monitor, error) {
+type MonitorCursor struct {
+	CreatedAt time.Time
+	ID        uuid.UUID
+}
+
+func (s *Store) ListMonitors(ctx context.Context, userID uuid.UUID, limit int, cursor *MonitorCursor) ([]Monitor, error) {
 	monitors := make([]Monitor, 0)
-	if err := s.db.WithContext(ctx).Where("user_id = ?", userID).
-		Order("created_at DESC, id DESC").Find(&monitors).Error; err != nil {
+	query := s.db.WithContext(ctx).Where("user_id = ?", userID)
+	if cursor != nil {
+		query = query.Where("(created_at, id) < (?, ?)", cursor.CreatedAt, cursor.ID)
+	}
+	if err := query.Order("created_at DESC, id DESC").Limit(limit + 1).Find(&monitors).Error; err != nil {
 		return nil, fmt.Errorf("list monitors: %w", err)
 	}
 	return monitors, nil

@@ -1,6 +1,9 @@
 package monitor
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 func TestValidURL(t *testing.T) {
 	for _, tc := range []struct {
@@ -8,15 +11,27 @@ func TestValidURL(t *testing.T) {
 		valid bool
 	}{
 		{"https://example.com/path?q=1", true},
+		{"HTTPS://example.com", true},
 		{"http://localhost:8080", true},
 		{"ftp://example.com", false},
 		{"https://", false},
 		{"https://user:pass@example.com", false},
 		{"https://example.com/#fragment", false},
+		{"https://example.com\\@private.test/", false},
+		{"https://example.com/\npath", false},
+		{"https://example.com/" + strings.Repeat("a", 2048), false},
 		{"", false},
 	} {
 		if got := validURL(tc.value); got != tc.valid {
 			t.Errorf("validURL(%q) = %v, want %v", tc.value, got, tc.valid)
+		}
+	}
+}
+
+func TestParseCursorRejectsInvalidInput(t *testing.T) {
+	for _, value := range []string{"bad", strings.Repeat("a", 129)} {
+		if _, err := parseCursor(value); err != ErrInvalidCursor {
+			t.Errorf("parseCursor(%q) error = %v", value, err)
 		}
 	}
 }

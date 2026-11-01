@@ -41,7 +41,7 @@ func main() {
 	tokens := auth.NewTokenManager(cfg.JWTSecret, cfg.JWTIssuer, cfg.JWTAudience, cfg.AccessTokenTTL)
 	authService := auth.NewService(dataStore, tokens, cfg.RefreshTokenTTL)
 	authService.SetFileStorage(files.New(cfg.FilesDir))
-	monitorService := monitor.NewService(dataStore, tokens)
+	monitorService := monitor.NewService(dataStore, authService)
 	server := &http.Server{
 		Addr:              cfg.HTTPAddr,
 		Handler:           server.NewRouter(authService, monitorService, cfg),

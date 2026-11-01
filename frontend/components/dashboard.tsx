@@ -3,7 +3,7 @@
 import { FormEvent, useEffect, useState } from "react";
 
 import { UserToolbar, useUserProfile } from "@/components/user-toolbar";
-import { IntervalUnit, isMonitor, isMonitorURL, Monitor } from "@/lib/monitors/types";
+import { IntervalUnit, isMonitor, isMonitorPage, isMonitorURL, Monitor } from "@/lib/monitors/types";
 
 const unitLabels: Record<IntervalUnit, [string, string, string]> = {
   seconds: ["секунду", "секунды", "секунд"],
@@ -24,6 +24,9 @@ export function Dashboard() {
   const [monitors, setMonitors] = useState<Monitor[] | null>(null);
   const [loadError, setLoadError] = useState("");
   const [reloadKey, setReloadKey] = useState(0);
+  const [cursor, setCursor] = useState("");
+  const [nextCursor, setNextCursor] = useState("");
+  const [loading, setLoading] = useState(false);
   const [formOpen, setFormOpen] = useState(false);
   const [url, setURL] = useState("");
   const [intervalValue, setIntervalValue] = useState("5");
@@ -37,19 +40,25 @@ export function Dashboard() {
     const controller = new AbortController();
     async function load() {
       setLoadError("");
+      setLoading(true);
       try {
-        const response = await fetch("/api/monitors", { signal: controller.signal });
+        const response = await fetch(`/api/monitors${cursor ? `?cursor=${cursor}` : ""}`, { signal: controller.signal });
         if (!response.ok) throw new Error("Не удалось загрузить сайты");
         const value: unknown = await response.json();
-        if (!Array.isArray(value) || !value.every(isMonitor)) throw new Error("Некорректный ответ сервиса");
-        if (!controller.signal.aborted) setMonitors(value);
+        if (!isMonitorPage(value)) throw new Error("Некорректный ответ сервиса");
+        if (!controller.signal.aborted) {
+          setMonitors((current) => !cursor ? value.items : [...(current ?? []), ...value.items]);
+          setNextCursor(value.next_cursor);
+        }
       } catch {
         if (!controller.signal.aborted) setLoadError("Не удалось загрузить сайты. Попробуйте ещё раз.");
+      } finally {
+        if (!controller.signal.aborted) setLoading(false);
       }
     }
     void load();
     return () => controller.abort();
-  }, [profileID, reloadKey]);
+  }, [profileID, reloadKey, cursor]);
 
   async function create(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -74,8 +83,11 @@ export function Dashboard() {
         throw new Error(message);
       }
       if (!isMonitor(value)) throw new Error("Сервис вернул некорректный ответ");
-      setMonitors((current) => [value, ...(current ?? [])]);
       setLoadError("");
+      setCursor("");
+      setMonitors(null);
+      setNextCursor("");
+      setReloadKey((current) => current + 1);
       setFormOpen(false);
       setURL("");
       setIntervalValue("5");
@@ -148,6 +160,8 @@ export function Dashboard() {
             ))}
           </ul>
         )}
+        {monitors && nextCursor && !loadError && <button type="button" disabled={loading}
+          onClick={() => setCursor(nextCursor)}>Показать ещё</button>}
       </section>
     </main>
   );
